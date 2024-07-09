@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zameen Scraping API</title>
+    <style>
+         body {
+             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+         h1 {
+            margin-bottom: 20px;
+        }
+        .content {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        .container {
+            width: 30%;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+        }
+        textarea, input {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow: auto;
+        }
+    </style>
+    <script>
+        async function fetchAdInfo() {
+            const urls = document.getElementById('adUrls').value.split('\n');
+            const response = await fetch('/getadinfo', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ urls })
+            });
+            const data = await response.json();
+            document.getElementById('adInfoResult').textContent = JSON.stringify(data, null, 2);
+            createDownloadLink(data, 'adInfoDownload', 'ad_info.json');
+            createFormatJSONdownload(data,'formatedAdsDownload','formated_ads.json');
+
+        }
+
+        async function fetchLatestAds() {
+            const urls = document.getElementById('latestAdsUrls').value.split('\n');
+            const response = await fetch('/getlatestads', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ urls })
+            });
+            const data = await response.json();
+            //document.getElementById('latestAdsResult').textContent = JSON.stringify(data, null, 2);
+            const linkList = document.getElementById('latestAdsResult');
+            linkList.innerHTML = '';
+            data.forEach(link => {
+                const listItem = document.createElement('div');
+                listItem.textContent = link;
+                linkList.appendChild(listItem);
+            });
+            createDownloadLink(data, 'latestAdsDownload', 'latest_ads.json');
+
+        }
+
+        async function fetchUrbanization() {
+            const latitude = document.getElementById('latitude').value;
+            const longitude = document.getElementById('longitude').value;
+            const radius = document.getElementById('radius').value;
+            const response = await fetch('/geturban', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ latitude, longitude, radius })
+            });
+            const data = await response.json();
+            document.getElementById('urbanResult').textContent = JSON.stringify(data, null, 2);
+
+            createDownloadLink(data, 'urbanDownload', 'urbanization_data.json');
+
+        }
+        function createDownloadLink(data, elementId, fileName) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.getElementById(elementId);
+            link.href = url;
+            link.download = fileName;
+            link.style.display = 'block';
+        }
+        
+        function transformAdData(adData) {
+            return {
+                id: adData.ad_id,
+                center: { lat: adData.latitude, lng: adData.longitude },
+                latitude: adData.latitude,
+                longitude: adData.longitude,
+                ad_creation_date:adData.ad_creation_date,
+                details: adData.listing_title,
+                imageSrc: adData.property_image_url,
+                name: adData.listing_title, // This value is not in the original data, assuming a constant placeholder
+                company: adData.marketed_by,
+                prop_type: adData.category_2_name.replace('_', ' '),
+                area_from: `${adData.property_area} ${adData.area_unit}`,
+                price_from: adData.property_price,
+                currency: adData.currency_unit,
+                description: adData.description,
+            };
+        }
+
+
+        function downloadFormattedJSON(adData) {
+            const formattedData = transformAdData(adData[0]);
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(formattedData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "formatted_ad_data.json");
+            document.body.appendChild(downloadAnchorNode); // Required for Firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function createFormatJSONdownload(data,elementId,filename){
+            new_data = []
+            data.forEach(ad_item => {
+                new_data.push(transformAdData(ad_item));
+            });
+            createDownloadLink(new_data,elementId,filename);
+        }
+    </script>
+</head>
+<body>
+        <h1>Zameen Scraping API</h1>
+        <div class="content">
+        <div class="containter">
+            <h2>Get Ad Info</h2>
+            <textarea id="adUrls" placeholder="Enter ad URLs, one per line"></textarea><br>
+            <button onclick="fetchAdInfo()">Fetch Ad Info</button>
+             <a id="adInfoDownload" style="display: none;">Download Ad Info</a>
+             <a id="formatedAdsDownload" style="display: none;">Formated Json info</a>
+
+            <pre id="adInfoResult"></pre>
+            <a id="adInfoDownload" style="display: none;">Download Ad Info</a>
+
+        </div>
+
+        <div class="containter">
+            <h2>Get Latest Ads</h2>
+            <textarea id="latestAdsUrls" placeholder="Enter search URLs, one per line"></textarea><br>
+            <button onclick="fetchLatestAds()">Fetch Latest Ads</button>
+            <a id="latestAdsDownload" style="display: none;">Download Latest Ads</a>
+
+            <div id="latestAdsResult" class="link-list"></div>
+             <a id="latestAdsDownload" style="display: none;">Download Latest Ads</a>
+        </div>
+
+        <div class="containter">
+            <h2>Get Urbanization Data</h2>
+            <input type="text" id="latitude" placeholder="Latitude"><br>
+            <input type="text" id="longitude" placeholder="Longitude"><br>
+            <input type="text" id="radius" placeholder="Radius"><br>
+            <button onclick="fetchUrbanization()">Fetch Urbanization Data</button>
+            <pre id="urbanResult"></pre>
+            <a id="urbanDownload" style="display: none;">Download Urbanization Data</a>
+
+         </div>
+     </div>
+</body>
+</html>
